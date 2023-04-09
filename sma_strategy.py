@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import yfinance as yf
 
-class SMAAnalyzer:
+class SMA_Strategy:
     """
     A class for analyzing stock data using simple moving averages (SMA).
     """
