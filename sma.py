@@ -63,6 +63,7 @@ class SMAAnalyzer:
                         stop_loss_signal.append(data['Ticker'][i])
                     else:
                         stop_loss_signal.append(np.nan)
+                    stop_loss_price = 0
                 else:
                     buy_signal.append(np.nan)
                     sell_signal.append(np.nan)
