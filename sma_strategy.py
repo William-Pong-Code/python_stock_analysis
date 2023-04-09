@@ -108,6 +108,7 @@ class SMA_Strategy:
         merged_df = merged_df[['Date_Buy', 'Buy_Signal_Price', 'Date_Sell', 'Sell_Signal_Price']].dropna()
         merged_df['Holding Days'] = merged_df['Date_Sell'] - merged_df['Date_Buy']
         merged_df['Profit'] = merged_df['Sell_Signal_Price'] - merged_df['Buy_Signal_Price']
+        merged_df['RoR (%)'] = merged_df['Profit'] / merged_df['Buy_Signal_Price'] * 100
         merged_df['Win'] = (merged_df['Profit'] > 0).astype(int)
         merged_df['Lose'] = (merged_df['Profit'] <= 0).astype(int)
         merged_df['Stop Loss'] = merged_df['Date_Sell'].isin(stop_loss['Date']).astype(int)
@@ -116,7 +117,9 @@ class SMA_Strategy:
         profitable_trades = merged_df['Win'].sum()
         average_holding_days = merged_df['Holding Days'].mean().days
         losing_trades = merged_df['Lose'].sum()
-        total_profit = merged_df['Profit'].sum() 
+        total_profit = merged_df['Profit'].sum()
+        average_profit = merged_df['Profit'].mean()
+        average_ror = merged_df['RoR (%)'].mean()
         stop_loss = merged_df['Stop Loss'].sum()
         
         if num_trades > 0:
@@ -126,12 +129,15 @@ class SMA_Strategy:
             win_probability = '0 days'
             average_holding_days = 0
 
+        print('Strategy: SMA')
         print(f"Number of trades: {num_trades}")
         print(f"Average holding period: {average_holding_days} days")
         print(f"Number of profitable trades: {profitable_trades}")
         print(f"Number of losing trades: {losing_trades}")
         print(f"Number of stop losses: {stop_loss}")
         print(f"Total profit: {total_profit:.2f}")
+        print(f"Average profit: {average_profit:.2f}")
+        print(f"Average RoR: {average_ror:.2f} %")
         print(f"Win rate: {win_probability}")     
 
     def show_performance(self):
