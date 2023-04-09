@@ -87,9 +87,14 @@ class SMAAnalyzer:
         average_holding_days = merged_df['Holding Days'].mean().days
         losing_trades = merged_df['Lose'].sum()
         total_profit = merged_df['Profit'].sum() 
-        win_probability = f'{round(profitable_trades / num_trades * 100, 2)} %'
+        
+        if num_trades > 0:
+            win_probability = f'{round(profitable_trades / num_trades * 100, 2)} %'
+            print(merged_df, end='\n\n')
+        else:
+            win_probability = '0 days'
+            average_holding_days = 0
 
-        print(merged_df, end='\n\n')
         print(f"Number of trades: {num_trades}")
         print(f"Average holding period: {average_holding_days} days")
         print(f"Number of profitable trades: {profitable_trades}")
