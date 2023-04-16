@@ -3,25 +3,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 import yfinance as yf
 
-class SMA_Strategy:
+class Bollinger_Band:
     """
-    A class for analyzing stock data using simple moving averages (SMA).
+    A class for analyzing stock data using bb.
     """
-    def __init__(self, ticker, start='2015-01-01', end="2022-01-01", sma_short=50, sma_long=200, stop_loss=True, stop_loss_percent=0.08):
+    def __init__(self, ticker, start='2015-01-01', end="2022-01-01", sma=20, st=2, stop_loss=True, stop_loss_percent=0.08):
         """
         ticker: stock code
         start: start day
         end: end day
-        sma_short: eg.SMA50
-        sma_long: eg.SMA200
+        sma: default: SMA20
+        st: default: 2 standard deviation
         stop_loss: Set True if having a stop_loss_percent
         stop_loss_percent: loss percentage compared to the buying price
         """
         self.ticker = ticker
         self.start = start
         self.end = end
-        self.sma_short = sma_short
-        self.sma_long = sma_long
+        self.sma = sma
+        self.st = st
         self.stop_loss = stop_loss
         self.stop_loss_percent = stop_loss_percent
 
@@ -43,7 +43,7 @@ class SMA_Strategy:
         stop_loss = self.stop_loss
         stop_loss_percent = self.stop_loss_percent
         for i in range(len(data)):
-            if data[f'SMA{self.sma_short}'][i] > data[f'SMA{self.sma_long}'][i] and data['Ticker'][i] > stop_loss_price:
+            if data['Ticker'][i] <= data['bollinger_down'][i] and data['Ticker'][i] > stop_loss_price:
                 stop_loss_signal.append(np.nan)
                 if flag == 0:
                     buy_signal.append(data['Ticker'][i])
@@ -54,7 +54,7 @@ class SMA_Strategy:
                 else:
                     buy_signal.append(np.nan)
                     sell_signal.append(np.nan)
-            elif data[f'SMA{self.sma_short}'][i] < data[f'SMA{self.sma_long}'][i] or data['Ticker'][i] < stop_loss_price:
+            elif data['Ticker'][i] >= data['bollinger_up'][i] or data['Ticker'][i] < stop_loss_price:
                 if flag == 1:
                     buy_signal.append(np.nan)
                     sell_signal.append(data['Ticker'][i])
@@ -68,7 +68,7 @@ class SMA_Strategy:
                     buy_signal.append(np.nan)
                     sell_signal.append(np.nan)
                     stop_loss_signal.append(np.nan)
-                if data[f'SMA{self.sma_short}'][i] < data[f'SMA{self.sma_long}'][i]:
+                if data['Ticker'][i] >= data['bollinger_down'][i]:
                     flag = 0
             else:
                 buy_signal.append(np.nan)
@@ -82,11 +82,10 @@ class SMA_Strategy:
         Plots the stock data and the SMA strategy.
         """
         data = self.data
-        # plt.style.use('fivethirtyeight')
         plt.figure(figsize=(12.5, 8))
         plt.plot(data['Ticker'], label=self.ticker.upper(), alpha=0.45)
-        plt.plot(data[f'SMA{self.sma_short}'], label=f'SMA{self.sma_short}', alpha=0.45)
-        plt.plot(data[f'SMA{self.sma_long}'], label=f'SMA{self.sma_long}', alpha=0.45)
+        plt.plot(data['bollinger_up'], label='Bollinger Up', c='gray')
+        plt.plot(data['bollinger_down'], label='Bollinger Down', c='gray')
         plt.scatter(data.index, data['Buy_Signal_Price'], label='Buy', marker='^', color='green')
         plt.scatter(data.index, data['Sell_Signal_Price'], label='Sell', marker='^', color='red')
         plt.scatter(data.index, data['Stop_Loss'], label='Stop Loss', marker='x', color='red', linewidth=3)
@@ -98,7 +97,7 @@ class SMA_Strategy:
 
     def analyze_performance(self):
         """
-        Analyzes the performance of the SMA strategy.
+        Analyzes the performance of the strategy.
         """
         data = self.data
         buy = data['Buy_Signal_Price'].dropna().reset_index(drop=False)
@@ -129,7 +128,7 @@ class SMA_Strategy:
             win_probability = '0 days'
             average_holding_days = 0
 
-        print('Strategy: SMA')
+        print('Strategy: Bollinger Band')
         print(f"Number of trades: {num_trades}")
         print(f"Average holding period: {average_holding_days} days")
         print(f"Number of profitable trades: {profitable_trades}")
@@ -139,15 +138,25 @@ class SMA_Strategy:
         print(f"Average profit: {average_profit:.2f}")
         print(f"Average RoR: {average_ror:.2f} %")
         print(f"Win rate: {win_probability}")     
+    
+    def get_bollinger_bands(self, prices):
+        
+        def get_sma(prices, rate):
+            return prices.rolling(rate).mean()
+        
+        sma = get_sma(prices, self.sma)
+        std = prices.rolling(self.sma).std()
+        bollinger_up = sma + std * self.st
+        bollinger_down = sma - std * self.st
+        return bollinger_up, bollinger_down
 
     def show_performance(self):
         df = self.download_data()
 
         data = pd.DataFrame()
         data['Ticker'] = df['Adj Close']
-        data[f'SMA{self.sma_short}'] = df['Adj Close'].rolling(window=self.sma_short).mean()
-        data[f'SMA{self.sma_long}'] = df['Adj Close'].rolling(window=self.sma_long).mean()
+        data['bollinger_up'], data['bollinger_down'] = self.get_bollinger_bands(data['Ticker'])
         data['Buy_Signal_Price'], data['Sell_Signal_Price'], data['Stop_Loss']  = self.buy_sell(data)
-
+        self.data = data
         self.analyze_performance()
         self.plot_data()
