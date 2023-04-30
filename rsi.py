@@ -110,7 +110,7 @@ class RSI_Strategy:
         plt.legend(loc='upper left')
         plt.title(f'{self.ticker.upper()} RSI Signal')
         plt.xlabel('DateTime')
-        plt.ylabel('Close Price')
+        plt.ylabel('RSI Signal')
         plt.show()
 
         data['return'].plot(title=f'{self.ticker} Return Rate')

@@ -114,7 +114,7 @@ class MACD_Strategy:
         plt.legend(loc='upper left')
         plt.title(f'{self.ticker.upper()} MACD Signal')
         plt.xlabel('DateTime')
-        plt.ylabel('Close Price')
+        plt.ylabel('MACD Signal')
         plt.show()
 
         data['return'].plot(title=f'{self.ticker} Return Rate')
