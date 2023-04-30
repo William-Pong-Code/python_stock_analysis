@@ -3,25 +3,27 @@ import numpy as np
 import matplotlib.pyplot as plt
 import yfinance as yf
 
-class Bollinger_Band:
+class MACD_Strategy:
     """
-    A class for analyzing stock data using bb.
+    A class for analyzing stock data using macd.
     """
-    def __init__(self, ticker, start='2015-01-01', end="2022-01-01", sma=20, st=2, stop_loss=True, stop_loss_percent=0.08):
+    def __init__(self, ticker, start='2015-01-01', end="2022-01-01", ema_short=12, ema_long=26, ema_line=9, stop_loss=True, stop_loss_percent=0.08):
         """
         ticker: stock code
         start: start day
         end: end day
-        sma: default: SMA20
-        st: default: 2 standard deviation
+        ema_short: eg.12
+        ema_long: eg.26
+        ema_line: eg.9
         stop_loss: Set True if having a stop_loss_percent
         stop_loss_percent: loss percentage compared to the buying price
         """
         self.ticker = ticker
         self.start = start
         self.end = end
-        self.sma = sma
-        self.st = st
+        self.ema_short = ema_short
+        self.ema_long = ema_long
+        self.ema_line = ema_line
         self.stop_loss = stop_loss
         self.stop_loss_percent = stop_loss_percent
 
@@ -43,24 +45,24 @@ class Bollinger_Band:
         stop_loss = self.stop_loss
         stop_loss_percent = self.stop_loss_percent
         for i in range(len(data)):
-            if data['Ticker'][i] <= data['bollinger_down'][i] and data['Ticker'][i] > stop_loss_price:
+            if data['EMA MACD'][i] > data['EMA Signal'][i] and data['close'][i] > stop_loss_price:
                 stop_loss_signal.append(np.nan)
                 if flag == 0:
-                    buy_signal.append(data['Ticker'][i])
+                    buy_signal.append(data['close'][i])
                     if stop_loss:
-                        stop_loss_price = data['Ticker'][i] * (1 - stop_loss_percent)
+                        stop_loss_price = data['close'][i] * (1 - stop_loss_percent)
                     sell_signal.append(np.nan)
                     flag = 1
                 else:
                     buy_signal.append(np.nan)
                     sell_signal.append(np.nan)
-            elif data['Ticker'][i] >= data['bollinger_up'][i] or data['Ticker'][i] < stop_loss_price:
+            elif data['EMA MACD'][i] < data['EMA Signal'][i] or data['close'][i] < stop_loss_price:
                 if flag == 1:
                     buy_signal.append(np.nan)
-                    sell_signal.append(data['Ticker'][i])
+                    sell_signal.append(data['close'][i])
                     flag = -1
-                    if data['Ticker'][i] < stop_loss_price:
-                        stop_loss_signal.append(data['Ticker'][i])
+                    if data['close'][i] < stop_loss_price:
+                        stop_loss_signal.append(data['close'][i])
                     else:
                         stop_loss_signal.append(np.nan)
                     stop_loss_price = 0
@@ -68,7 +70,7 @@ class Bollinger_Band:
                     buy_signal.append(np.nan)
                     sell_signal.append(np.nan)
                     stop_loss_signal.append(np.nan)
-                if data['Ticker'][i] >= data['bollinger_down'][i]:
+                if data['EMA MACD'][i] < data['EMA Signal'][i]:
                     flag = 0
             else:
                 buy_signal.append(np.nan)
@@ -76,18 +78,7 @@ class Bollinger_Band:
                 stop_loss_signal.append(np.nan)
         self.data = data
         return buy_signal, sell_signal, stop_loss_signal
-    
-    def get_bollinger_bands(self, prices):
-        
-        def get_sma(prices, rate):
-            return prices.rolling(rate).mean()
-        
-        sma = get_sma(prices, self.sma)
-        std = prices.rolling(self.sma).std()
-        bollinger_up = sma + std * self.st
-        bollinger_down = sma - std * self.st
-        return bollinger_up, bollinger_down, sma
-    
+
     def historical_simulation(self, data, percentile=0.99):
         latest_price = data['close'].iat[-1]
         number_of_share = 100 / latest_price
@@ -103,13 +94,25 @@ class Bollinger_Band:
         data = self.data
         plt.figure(figsize=(12.5, 8))
         plt.plot(data['Ticker'], label=self.ticker.upper(), alpha=0.45)
-        plt.plot(data['bollinger_up'], label='Bollinger Up', c='gray')
-        plt.plot(data['bollinger_down'], label='Bollinger Down', c='gray')
         plt.scatter(data.index, data['Buy_Signal_Price'], label='Buy', marker='^', color='green')
         plt.scatter(data.index, data['Sell_Signal_Price'], label='Sell', marker='^', color='red')
         plt.scatter(data.index, data['Stop_Loss'], label='Stop Loss', marker='x', color='red', linewidth=3)
         plt.legend(loc='upper left')
         plt.title(f'{self.ticker.upper()} Close Price & Signals')
+        plt.xlabel('DateTime')
+        plt.ylabel('Close Price')
+        plt.show()
+
+        data['MACD Buy'] = np.where(data['Buy_Signal_Price'].isna(), np.nan, data[f'EMA MACD'])
+        data['MACD Sell'] = np.where(data['Sell_Signal_Price'].isna(), np.nan, data[f'EMA MACD'])
+        data['MACD Stop Loss'] = np.where(data['Stop_Loss'].isna(), np.nan, data[f'EMA MACD'])
+        plt.plot(data[f'EMA MACD'], label=self.ticker.upper(), alpha=0.45)
+        plt.plot(data[f'EMA Signal'], label=self.ticker.upper(), alpha=0.45)
+        plt.scatter(data.index, data['MACD Buy'], label='Buy', marker='^', color='green')
+        plt.scatter(data.index, data['MACD Sell'], label='Sell', marker='^', color='red')
+        plt.scatter(data.index, data['MACD Stop Loss'], label='Stop Loss', marker='x', color='red', linewidth=3)
+        plt.legend(loc='upper left')
+        plt.title(f'{self.ticker.upper()} MACD Signal')
         plt.xlabel('DateTime')
         plt.ylabel('Close Price')
         plt.show()
@@ -143,6 +146,15 @@ class Bollinger_Band:
         data['loss'] = 100 - simulation * number_of_share
         var_99_percent = data['loss'].quantile(percentile)
         return var_99_percent
+
+    def calculate_macd(self, data):
+        ema_12 = data['close'].ewm(span=self.ema_short).mean()
+        ema_26 = data['close'].ewm(span=self.ema_long).mean()
+        macd_line = ema_12 - ema_26
+        signal_line = macd_line.ewm(span=self.ema_line).mean()
+        macd_histogram = macd_line - signal_line
+
+        return macd_line, signal_line, macd_histogram
 
     def analyze_performance(self):
         """
@@ -180,7 +192,7 @@ class Bollinger_Band:
 
         var_99_percent = self.historical_simulation(data)
 
-        print('Strategy: Bollinger Band')
+        print('Strategy: MACD')
         print(f"Trades: {num_trades}")
         print(f"Avg holding period: {average_holding_days}")
         print(f"Win trades: {profitable_trades}")
@@ -210,8 +222,8 @@ class Bollinger_Band:
         data['close'] = df['Close']
         data['vol'] = df['Volume']
         data['return'] = 100 * data['close'].pct_change()
-        data['bollinger_up'], data['bollinger_down'], data['sma'] = self.get_bollinger_bands(data['Ticker'])
-        data['Buy_Signal_Price'], data['Sell_Signal_Price'], data['Stop_Loss']  = self.buy_sell(data)
+        data['EMA MACD'], data['EMA Signal'], data['EMA Histogram'] = self.calculate_macd(data)
+        data['Buy_Signal_Price'], data['Sell_Signal_Price'], data['Stop_Loss'] = self.buy_sell(data)
 
         self.analyze_performance()
         self.plot_data()
@@ -223,7 +235,8 @@ if __name__ == '__main__':
     stop_loss = True
     stop_loss_percent = 0.08
 
-    sma = 20
-    st = 2
+    ema_short = 12
+    ema_long = 26
+    ema_line = 9
     
-    Bollinger_Band(ticker=stock_code, start=start, end=end, sma=sma, st=st, stop_loss=stop_loss, stop_loss_percent=stop_loss_percent).show_performance()
+    MACD_Strategy(ticker=stock_code, start=start, end=end, ema_short=ema_short, ema_long=ema_long, ema_line=ema_line, stop_loss=True, stop_loss_percent=0.08).show_performance()
